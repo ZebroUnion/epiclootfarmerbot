@@ -29,13 +29,13 @@ class API:
     def post(self, uri:str, headers:dict, json:dict={}):
         req = requests.post(self.uri + uri, headers=headers, json=json)
         if self.debug:
-            print(req.json())
+            print(str(req.json())+'\n')
         return req
     
     def get(self, uri:str, headers:dict):
         req = requests.get(self.uri + uri, headers=headers)
         if self.debug:
-            print(req.json())
+            print(str(req.json())+'\n')
         return req
 
     def refresh_cookies(self, cookies_path:str):
@@ -74,7 +74,7 @@ class Game():
         self.prize = None
 
     def start(self):
-        req = self.post("event/game/start", headers=self.api.headers)
+        req = self.api.post("event/game/start", headers=self.api.headers)
         if req.status_code != 200 or req.json()['success'] is False:
             return req
         self.game_id = req.json()["id"]
@@ -82,24 +82,18 @@ class Game():
         self.status = 'Playing'
         self.lives_left = req.json()["lives"]
         self.steps_taken = 1
-        if self.api.debug:
-            print(req.json())
         return req
 
     def make_step(self):
         y_step = random.choice(range(1,4))
-        req = self.post(f"event/game/move", headers=self.api.headers, json={"id": self.game_id, "x": self.steps_taken, "y": y_step})
-        if self.api.debug:
-            print(req.json())
+        req = self.api.post(f"event/game/move", headers=self.api.headers, json={"id": self.game_id, "x": self.steps_taken, "y": y_step})
         rt = 0
         while req.json()['success'] is False and rt < 5:
-            req = self.post(f"event/game/move", headers=self.api.headers, json={"id": self.game_id, "x": self.steps_taken, "y": y_step})
-            if self.api.debug:
-                print(req.json())
+            req = self.api.post(f"event/game/move", headers=self.api.headers, json={"id": self.game_id, "x": self.steps_taken, "y": y_step})
             time.sleep(1)
             rt += 1
         if req.status_code != 200 or req.json()['success'] is False:
-            return False, y_step
+            return req, y_step
         if req.json()['dead'] is True:
             self.lives_left -= 1
             self.steps_taken = 1
@@ -124,7 +118,7 @@ class Game():
         print('Начал игру #', self.game_id)
         while not self.ended:
             step, y_step = self.make_step()
-            if step is False:
+            if step.json()['success'] is False:
                 print(f'Ошибка {step.json()}')
                 break
             print('Сделал шаг на x: '+str(self.steps_taken)+' y:'+str(y_step)+f' | {"Умер" if step.json()["dead"] == True else "Живой"}')
